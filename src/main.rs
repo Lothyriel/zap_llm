@@ -3,7 +3,9 @@ mod models;
 mod utils;
 
 use anyhow::Result;
-use models::SendMessageRequest;
+use client::GreenApiClient;
+use models::{receipt::MessageReceipt, SendMessageRequest};
+use ollama_rs::{generation::completion::request::GenerationRequest, Ollama};
 
 #[tokio::main]
 async fn main() {
@@ -35,18 +37,48 @@ async fn process_message() -> Result<bool> {
     println!("Sender: {}", message.body.sender_data.sender_name);
     println!("Message: {:?}", message.body.message_data);
 
-    if message.mentions_me() {
-        let msg = SendMessageRequest {
-            chat_id: message.body.sender_data.chat_id,
-            quoted_message_id: message.body.id_message,
-            message: "Fala que eu te esgurmo!".to_string(),
-        };
     clear_msg(&client, message.receipt_id);
 
     handle_answer(message, &client).await?;
 
     Ok(true)
 }
+
+async fn handle_answer(message: MessageReceipt, client: &GreenApiClient) -> Result<()> {
+    let text = match message.should_answer() {
+        Some(t) => t,
+        None => return Ok(()),
+    };
+
+    println!("Sending message to model...");
+
+    let model_response = get_model_response(text.to_string()).await?;
+
+    let msg = SendMessageRequest {
+        chat_id: message.body.sender_data.chat_id,
+        quoted_message_id: message.body.id_message,
+        message: model_response,
+    };
+
+    client.quote_answer_message(msg).await?;
+
+    Ok(())
+}
+
+async fn get_model_response(prompt: String) -> Result<String> {
+    let model = "llama2:latest".to_string();
+
+    let url = std::env::var("OLLAMA_URL").expect("Missing OLLAMA_URL env var");
+
+    let ollama = Ollama::new(url, 11434);
+
+    let res = ollama
+        .generate(GenerationRequest::new(model, prompt))
+        .await?;
+
+    Ok(res.response)
+}
+
 fn clear_msg(client: &GreenApiClient, message_id: u64) {
     let c = client.clone();
 
