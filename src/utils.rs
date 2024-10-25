@@ -1,7 +1,7 @@
 use crate::models::receipt::{MessageData, MessageReceipt};
 
 impl MessageReceipt {
-    pub fn mentions_me(&self) -> bool {
+    pub fn should_answer(&self) -> Option<&str> {
         match &self.body.message_data {
             Some(MessageData::ExtendedTextMessage {
                 extended_text_message_data,
@@ -13,9 +13,13 @@ impl MessageReceipt {
                     .strip_suffix("@c.us")
                     .expect("wid was expected to contain @c.us suffix");
 
-                extended_text_message_data.text.contains(number)
+                if extended_text_message_data.text.contains(number) {
+                    Some(&extended_text_message_data.text)
+                } else {
+                    None
+                }
             }
-            _ => false,
+            _ => None,
         }
     }
 }
