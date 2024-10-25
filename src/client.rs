@@ -18,6 +18,7 @@ fn get_url(endpoint_name: &str, path_id: Option<&str>) -> String {
     format!("{api_url}/waInstance{id_instance}/{endpoint_name}/{api_token_instance}/{path_id}")
 }
 
+#[derive(Clone)]
 pub struct GreenApiClient {
     client: reqwest::Client,
 }

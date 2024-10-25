@@ -41,17 +41,32 @@ async fn process_message() -> Result<bool> {
             quoted_message_id: message.body.id_message,
             message: "Fala que eu te esgurmo!".to_string(),
         };
+    clear_msg(&client, message.receipt_id);
 
-        client.quote_answer_message(msg).await?;
-    }
-
-    let deletion = client.delete_notification(message.receipt_id).await?;
-
-    if deletion.result {
-        println!("Message {} deleted from queue", message.receipt_id);
-    } else {
-        println!("Error deleting message: {}", message.receipt_id)
-    }
+    handle_answer(message, &client).await?;
 
     Ok(true)
+}
+fn clear_msg(client: &GreenApiClient, message_id: u64) {
+    let c = client.clone();
+
+    let task = async move {
+        let deletion = c.delete_notification(message_id).await;
+
+        let deletion = match deletion {
+            Ok(d) => d,
+            Err(e) => {
+                println!("Error deleting message {message_id} | {e}");
+                return;
+            }
+        };
+
+        if deletion.result {
+            println!("Message {} deleted from queue", message_id);
+        } else {
+            println!("Error deleting message: {}", message_id)
+        }
+    };
+
+    tokio::spawn(task);
 }
